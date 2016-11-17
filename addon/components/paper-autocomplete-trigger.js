@@ -6,6 +6,8 @@ import { not } from '@ember/object/computed';
 import { computed } from '@ember/object';
 import layout from '../templates/components/paper-autocomplete-trigger';
 
+const { Component, isPresent, isBlank, run, get, computed, ObjectProxy } = Ember;
+
 /**
  * @class PaperAutocompleteTrigger
  * @extends Ember.Component
@@ -13,17 +15,36 @@ import layout from '../templates/components/paper-autocomplete-trigger';
 export default Component.extend({
   layout,
   tagName: 'md-autocomplete-wrap',
-  classNameBindings: ['noLabel:md-whiteframe-z1', 'select.isOpen:md-menu-showing', 'showingClearButton:md-show-clear-button'],
+  classNames: ['md-show-clear-button'],
+  classNameBindings: ['noLabel:md-whiteframe-z1', 'select.isOpen:md-menu-showing'],
 
-  noLabel: not('extra.label'),
-  showingClearButton: computed('allowClear', 'disabled', 'resetButtonDestroyed', function() {
-    // make room for clear button:
-    // - if we're enabled
-    // - or if we're disabled but the button still wasn't destroyed
-    return this.get('allowClear') && (
-      !this.get('disabled') || (this.get('disabled') && !this.get('resetButtonDestroyed'))
-    );
-  }),
+  noLabel: computed.not('extra.label'),
+  _innerText: computed.oneWay('searchText'),
+
+  text: computed('selected', 'searchText', '_innerText', {
+    get() {
+      let {
+        selected,
+        searchText,
+        _innerText
+      } = this.getProperties('selected', 'searchText', '_innerText');
+
+      // Support ObjectProxy
+      let selectedValue = (selected instanceof ObjectProxy) ? get(selected, 'content') : selected;
+      if (selectedValue) {
+        return this.getSelectedAsText();
+      }
+
+      return searchText ? searchText : _innerText;
+    },
+    set(_, v) {
+      let { selected, searchText } = this.getProperties('selected', 'searchText');
+      this.set('_innerText', v);
+
+      // searchText should always win
+      if (!selected && isPresent(searchText)) {
+        return searchText;
+      }
 
   text: computed('select.{searchText,selected}', function() {
     let selected = this.get('select.selected');
